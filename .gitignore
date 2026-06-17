@@ -1,1 +1,3 @@
 chroma_db/*
+!chroma_db.py
+!__init__.py
