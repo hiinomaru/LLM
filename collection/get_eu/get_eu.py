@@ -11,6 +11,22 @@ def unwrap(x):
     return x
 
 def filter_project(proj):
+    """
+    Filter and transform a raw EU grant record.
+
+    Only grants with active or upcoming statuses are retained.
+    Relevant metadata fields are extracted and mapped into
+    a simplified structure.
+
+    Args:
+        proj (dict):
+            Raw project record returned by the EU API.
+
+    Returns:
+        dict | None:
+            Simplified grant record or None if the grant
+            does not satisfy the filtering criteria.
+    """
     metadata = proj.get("metadata", {})
 
     statuses = metadata.get("status", [])
@@ -39,6 +55,18 @@ def filter_project(proj):
     return result
 
 def get_eu_grants(filename):
+    """
+    Download grant opportunities from the EU Funding & Tenders API.
+
+    Results are fetched page by page, filtered, and saved as JSONL.
+
+    Args:
+        filename (str):
+            Output JSONL file path.
+
+    Returns:
+        None
+    """
     url = "https://api.tech.ec.europa.eu/search-api/prod/rest/search"
 
     query_data = {
@@ -106,6 +134,20 @@ def get_eu_grants(filename):
 #Cleaning and formatting#
 
 def clean_html(text):
+    """
+    Remove HTML tags and normalize text.
+
+    Converts lists into strings and strips HTML markup
+    using BeautifulSoup.
+
+    Args:
+        text:
+            Input text, HTML string, list, or other object.
+
+    Returns:
+        str:
+            Clean plain-text representation.
+    """
     if not text:
         return ""
 
@@ -126,6 +168,22 @@ import json
 import math
 
 def extract_budget_min_max(budget):
+    """
+    Extract minimum and maximum funding amounts.
+
+    Parses the EU budget structure and identifies the smallest
+    and largest contribution values across all actions.
+
+    Args:
+        budget:
+            Budget object or JSON string.
+
+    Returns:
+        dict:
+            Dictionary containing:
+                - min_budget
+                - max_budget
+    """
     if not budget:
         return {
             "min_budget": None,
@@ -168,16 +226,49 @@ def extract_budget_min_max(budget):
         "max_budget": None if not found else max_val
     }
 
-def normalize_status(source, status):
+def normalize_status(status):
+    """
+    Convert source-specific status codes into normalized labels.
+
+    EU status identifiers are mapped to human-readable values
+    such as 'active' or 'pending'.
+
+    Args:
+        source (str):
+            Data source identifier.
+
+        status:
+            Original status code.
+
+    Returns:
+        str | None:
+            Normalized status value.
+    """
     if not status:
         return None
     if isinstance(status, list):
         status = status[0]
     return EU_STATUS_MAP.get(status, status)
 
-    return status
 
 def normalize_record(item):
+    """
+    Convert a raw grant record into a retrieval-ready format.
+
+    The function:
+        - normalizes status values
+        - extracts budget ranges
+        - cleans HTML content
+        - builds the embedding text used for vector search
+
+    Args:
+        item (dict):
+            Raw grant record.
+
+    Returns:
+        dict:
+            Normalized grant record suitable for indexing.
+    """
     source = item["source"]
     amount = extract_budget_min_max(item.get("amount"))
 
@@ -198,7 +289,7 @@ def normalize_record(item):
     return {
         "id": item.get("id"),
         "source": source,
-        "status": normalize_status(source, item.get("status")),
+        "status": normalize_status(item.get("status")),
         "start_date": item.get("start_date"),
         "end_date": item.get("end_date"),
         "min_amount": amount.get("min_budget"),
@@ -208,6 +299,22 @@ def normalize_record(item):
     }
 
 def process_eu_jsonl(input_file, output_file):
+    """
+    Process a JSONL dataset and create a normalized version.
+
+    Each record is transformed using normalize_record()
+    and written as a new JSONL line.
+
+    Args:
+        input_file (str):
+            Path to the raw JSONL dataset.
+
+        output_file (str):
+            Path to the normalized JSONL dataset.
+
+    Returns:
+        None
+    """
     with open(input_file, "r", encoding="utf-8") as fin, \
          open(output_file, "w", encoding="utf-8") as fout:
 

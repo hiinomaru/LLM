@@ -19,6 +19,15 @@ splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 _db = None
 
 def get_db():
+    """
+    Get or create the ChromaDB vector database instance.
+
+    The database is initialized only once and reused across the application.
+    Embeddings are generated using the all-MiniLM-L6-v2 sentence transformer.
+
+    Returns:
+        Chroma: Initialized ChromaDB collection containing grant documents.
+    """
     global _db
     if _db is None:
         print("Loading db...")
@@ -26,6 +35,23 @@ def get_db():
     return _db
 
 def ingest():
+    """
+    Load grant data from a JSONL file and populate the ChromaDB collection.
+
+    For each grant:
+        - extracts title, summary, keywords, and fields
+        - removes code-like keywords
+        - builds a compact document header
+        - optionally compresses long headers using the LLM
+        - splits grant fields into chunks
+        - attaches metadata
+        - stores chunks in ChromaDB
+
+    Each chunk consists of max 1000 symbols of text + max 750 symbols header. Additionally collects chunk length statistics and visualizes them.
+
+    Returns:
+        None
+    """
     stats = defaultdict(list)
     with open(PATH, "r", encoding="utf-8") as file:
         for line in tqdm(file, desc="Loading grants"):
@@ -100,9 +126,42 @@ def ingest():
     print("Done.")
 
 def is_code_like(text):
+    """
+    Check whether a keyword resembles a technical identifier or grant code.
+
+    Examples:
+        HORIZON-2024
+        ERC12345678
+
+    Args:
+        text (str):
+            Keyword candidate.
+
+    Returns:
+        bool:
+            True if the text matches the code pattern,
+            otherwise False.
+    """
     return bool(re.fullmatch(r"[A-Z0-9\-]{8,}", text))
 
 def llm_summary(text: str) -> str:
+    """
+    Generate a compact structured summary using Qwen.
+
+    The model rewrites the provided text into a retrieval-friendly
+    format containing title, summary, and keywords.
+
+    The generated summary is used when the original grant header
+    becomes too long for efficient retrieval.
+
+    Args:
+        text (str):
+            Grant summary text.
+
+    Returns:
+        str:
+            Structured one-line representation of the grant.
+    """
     messages = [
         {
             "role": "system",
@@ -152,6 +211,26 @@ def llm_summary(text: str) -> str:
     return result.strip()
 
 def build_grant_header(title, summary, keywords):
+    """
+    Build a retrieval-oriented grant header.
+
+    The header combines the grant title, summary, and optionally
+    filtered keywords into a compact textual representation.
+
+    Args:
+        title (str):
+            Grant title.
+
+        summary (str):
+            Grant summary.
+
+        keywords (str):
+            Comma-separated keyword list.
+
+    Returns:
+        str:
+            Formatted grant header.
+    """
     header = f"""Title: {title} \nSummary: {summary}"""
 
     if keywords:
@@ -160,7 +239,20 @@ def build_grant_header(title, summary, keywords):
     return header
 
 def plot_chunk_len(data):
+    """
+    Visualize chunk length distribution for each chunk position.
 
+    Generates a boxplot showing how chunk sizes vary across
+    the dataset after document splitting.
+
+    Args:
+        data (dict):
+            Dictionary where keys represent chunk indices and
+            values contain lists of chunk lengths.
+
+    Returns:
+        None
+    """
     plt.boxplot(list(data.values()), labels=list(data.keys()),
         flierprops=dict(
         marker='.',
