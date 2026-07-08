@@ -1,0 +1,152 @@
+from chroma_db import get_db
+from rag.query_expansion import llm_expand_query
+from llm import get_llm
+
+model, tokenizer = get_llm()
+
+# retriever
+db = get_db()
+retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 10, "fetch_k": 20})
+
+def rag_answer(query: str, pretty_print = True):
+    # 0. EXPAND
+    expanded_query = llm_expand_query(query)
+
+    # 1. RETRIEVE
+    #results = db.similarity_search(expanded_query, k=5)
+    results = retriever.invoke(expanded_query)
+
+    grouped = {}
+
+    for doc in results:
+        doc_id = doc.metadata.get("id")
+        text = doc.page_content
+
+        if doc_id not in grouped:
+            # create new doc
+            grouped[doc_id] = doc
+        else:
+            # write to existing
+            grouped[doc_id].page_content += "\n\n" + text[text.find("Fields:") + len("Fields:"):]
+
+    results = list(grouped.values())
+
+    if not results:
+        return {"answer": "Insufficient evidence.", "sources": []}
+
+    # 2. PACK CONTEXT
+    context_chunks = []
+    sources = []
+
+    for i in range(len(results)):
+        text = results[i].page_content
+        context_chunks.append(f"[{i+1}]  {text}")
+        context_chunks.append("start_date: " + str(results[i].metadata.get("start_date")))
+        context_chunks.append("end_date: " + str(results[i].metadata.get("end_date")))
+        context_chunks.append("min_amount: " + str(results[i].metadata.get("min_amount")))
+        context_chunks.append("max_amount: " + str(results[i].metadata.get("max_amount")))
+        if meta.get("source"):
+            sources.append(results[i].metadata.get("url"))
+
+    context = "\n\n".join(context_chunks)
+
+    # 3. PROMPT
+    prompt = f"""
+You are a RAG assistant for grant-related questions.
+
+RULES:
+- Use ONLY provided context. No external knowledge.
+- Do NOT hallucinate or guess missing information.
+- EVERY FACTUAL CLAIM must be supported by context and cited [source].
+- If information is missing or insufficient, say:
+  "Insufficient evidence"
+
+TASKS:
+
+1. Retrieval / Extraction:
+Extract relevant grant info strictly from context with citations.
+
+2. Paraphrased queries:
+Understand intent but answer ONLY from retrieved data.
+
+3. Structured listing:
+Return:
+- Grant name
+- Short description
+- Funding
+- Deadline
+- [source] citarion
+If missing → "Not specified in sources"
+
+4. Filtering:
+Strictly filter by attributes using only context.
+
+5. Comparison:
+Use tables. No missing-data guessing.
+
+6. Source verification:
+Only confirm if explicitly supported by text.
+
+7. Multi-turn:
+Respect prior context and constraints.
+
+8. Abstention:
+If unclear or missing data → use strict refusal:
+"Insufficient evidence"
+
+ANTI-HALLUCINATION:
+Never invent grants, numbers, deadlines, or eligibility rules.
+
+STYLE:
+Concise, structured, factual. No speculation.
+
+ROLE:
+You are a retrieval-based grant intelligence system, not a general knowledge model.
+
+EVIDENCE:
+{context}
+
+QUESTION:
+{query}
+
+Answer:
+"""
+
+    #print(prompt)
+
+    # 4. GENERATE
+    messages = [{"role": "user", "content": prompt}]
+
+    chat = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True)
+
+    inputs = tokenizer(chat, return_tensors="pt").to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=512,
+        do_sample=False,
+        temperature=0.0,
+        pad_token_id=tokenizer.eos_token_id)
+
+    gen = tokenizer.decode(
+        outputs[0][inputs.input_ids.shape[1]:],
+        skip_special_tokens=True).strip()
+
+    if pretty_print:
+        return pretty_print_rag({"answer": gen, "sources": list(sources)})
+    else:
+        return {"answer": gen, "sources": list(sources)}
+
+def pretty_print_rag(result):
+    print("\nANSWER:\n")
+    print(result["answer"])
+
+    print("\nSOURCES:")
+    for s in result.get("sources", []):
+        print("-", s)
+
+    if result.get("abstain"):
+        print("\nAbstained: no sufficient evidence")
