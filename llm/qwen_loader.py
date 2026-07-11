@@ -8,7 +8,16 @@ _model = None
 _tokenizer = None
 
 def get_llm():
+    """
+    Load and return the Qwen LLM and tokenizer.
 
+    The model is initialized only once and reused throughout
+    the application using a singleton-like pattern.
+
+    Returns:
+        tuple[AutoModelForCausalLM, AutoTokenizer]:
+            Loaded model and tokenizer.
+    """
     global _model
     global _tokenizer
 

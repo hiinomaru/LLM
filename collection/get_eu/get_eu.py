@@ -1,5 +1,6 @@
 import requests
 import json
+import math
 from tqdm import tqdm
 import re
 from bs4 import BeautifulSoup
@@ -163,9 +164,6 @@ EU_STATUS_MAP = {
     "31094501": "active",
     "31094502": "pending",
 }
-
-import json
-import math
 
 def extract_budget_min_max(budget):
     """

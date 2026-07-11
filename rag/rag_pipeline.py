@@ -8,7 +8,35 @@ model, tokenizer = get_llm()
 db = get_db()
 retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 10, "fetch_k": 20})
 
-def rag_answer(query: str, pretty_print = True):
+def rag_answer(query: str, pretty_print: bool = True ) -> dict:
+    """
+    Generate an answer using the grant RAG pipeline.
+
+    The pipeline consists of four stages:
+
+        1. Query Expansion
+        2. Retrieval
+        3. Context Construction
+        4. Answer Generation
+
+    If no relevant documents are found, the system returns
+    an abstention response.
+
+    Args:
+        query (str):
+            User question about grants, funding opportunities,
+            deadlines, eligibility, or related topics.
+
+        pretty_print (bool):
+            Whether to print a formatted answer to the console.
+
+    Returns:
+        dict:
+            Dictionary containing:
+
+            - answer (str): Generated response.
+            - sources (list[str]): Source URLs.
+    """
     # 0. EXPAND
     expanded_query = llm_expand_query(query)
 
@@ -141,6 +169,21 @@ Answer:
         return {"answer": gen, "sources": list(sources)}
 
 def pretty_print_rag(result):
+    """
+    Display a formatted RAG response in the console.
+
+    Prints:
+        - generated answer
+        - retrieved source URLs
+        - abstention notice when applicable
+
+    Args:
+        result (dict):
+            Result dictionary returned by rag_answer().
+
+    Returns:
+        None
+    """
     print("\nANSWER:\n")
     print(result["answer"])
 

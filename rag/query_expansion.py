@@ -4,7 +4,27 @@ model, tokenizer = get_llm()
 
 def llm_expand_query(query: str) -> str:
     """
-    Expands a short user query into a grant-search optimized query.
+    Expand a user query for grant retrieval using Qwen.
+
+    The function rewrites a short user query into a keyword-dense query
+    optimized for semantic vector search.
+
+    The expansion process:
+        - adds relevant funding-related terminology
+        - maps concepts to EU research funding vocabulary
+        - introduces additional retrieval signals
+        - avoids natural-language explanations
+
+    The generated query is intended to improve recall when searching
+    the ChromaDB vector database.
+
+    Args:
+        query (str):
+            Original user query.
+
+    Returns:
+        str:
+            Expanded retrieval query suitable for embedding search.
     """
 
     messages = [

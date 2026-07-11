@@ -4,5 +4,11 @@ EU_RAW_FILE = r"data\raw\eu_grants.jsonl"
 EU_PROCESSED_FILE = r"data\processed\eu_grants_norm.jsonl"
 
 def collect():
+    """
+    Execute the complete EU grant collection pipeline.
+
+    Returns:
+        None
+    """
     get_eu_grants(EU_RAW_FILE)
     process_eu_jsonl(EU_RAW_FILE, EU_PROCESSED_FILE)
