@@ -1,5 +1,5 @@
 from chroma_db import get_db
-from .query_expansion import llm_expand_query
+from .query_expansion import llm_expand_query, llm_extract_profile
 from llm import get_llm
 
 retriever = None
@@ -145,6 +145,127 @@ QUESTION:
 {query}
 
 Answer:
+"""
+
+    #print(prompt)
+
+    # 4. GENERATE
+    messages = [{"role": "user", "content": prompt}]
+
+    chat = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True)
+
+    inputs = tokenizer(chat, return_tensors="pt").to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=512,
+        do_sample=False,
+        temperature=0.0,
+        pad_token_id=tokenizer.eos_token_id)
+
+    gen = tokenizer.decode(
+        outputs[0][inputs.input_ids.shape[1]:],
+        skip_special_tokens=True).strip()
+
+    if pretty_print:
+        return pretty_print_rag({"answer": gen, "sources": list(sources)})
+    else:
+        return {"answer": gen, "sources": list(sources)}
+
+def rag_cv_match(cv: str, pretty_print: bool = True ) -> dict:
+    """
+    Generate an answer using the grant RAG pipeline.
+    """
+    model, tokenizer = get_llm()
+    retriever = get_retriever()
+    # 0. EXPAND
+    profile = llm_extract_profile(cv)
+    
+    # 1. RETRIEVE
+    results = retriever.invoke(profile)
+
+    grouped = {}
+
+    for doc in results:
+        doc_id = doc.metadata.get("id")
+        text = doc.page_content
+
+        if doc_id not in grouped:
+            # create new doc
+            grouped[doc_id] = doc
+        else:
+            # write to existing
+            grouped[doc_id].page_content += "\n\n" + text[text.find("Fields:") + len("Fields:"):]
+
+    results = list(grouped.values())
+
+    if not results:
+        return {"answer": "Insufficient evidence.", "sources": []}
+
+    # 2. PACK CONTEXT
+    context_chunks = []
+    sources = []
+
+    for i in range(len(results)):
+        text = results[i].page_content
+        context_chunks.append(f"[{i+1}]  {text}")
+        context_chunks.append("start_date: " + str(results[i].metadata.get("start_date")))
+        context_chunks.append("end_date: " + str(results[i].metadata.get("end_date")))
+        context_chunks.append("min_amount: " + str(results[i].metadata.get("min_amount")))
+        context_chunks.append("max_amount: " + str(results[i].metadata.get("max_amount")))
+        if results[i].metadata.get("source"):
+            sources.append(results[i].metadata.get("url"))
+
+    context = "\n\n".join(context_chunks)
+
+    # 3. PROMPT
+    prompt = f"""
+You are an AI grant recommendation assistant.
+
+TASK:
+
+A researcher uploaded a CV.
+
+A profile was extracted from the CV.
+
+Your task is to recommend the most relevant grants from the retrieved context.
+
+IMPORTANT:
+- Use ONLY provided context.
+- Do NOT invent grants.
+- Do NOT invent funding values.
+- Do NOT invent deadlines.
+- Do NOT recommend grants not present in context.
+- Explain WHY each grant matches the profile.
+- If information is missing, write:
+  "Not specified in sources"
+
+RESEARCHER PROFILE:
+
+{profile}
+
+AVAILABLE GRANTS:
+
+{context}
+
+OUTPUT FORMAT:
+
+1. **Grant Name**
+   - Match: short explanation
+   - Funding: ...
+   - Deadline: ...
+   - Source: [1]
+
+2. **Grant Name**
+   - Match: short explanation
+   - Funding: ...
+   - Deadline: ...
+   - Source: [2]
+
+Rank grants from most relevant to least relevant.
 """
 
     #print(prompt)

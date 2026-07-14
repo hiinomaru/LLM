@@ -93,3 +93,57 @@ Expanded query:
         skip_special_tokens=True)
 
     return result.strip()
+
+
+def llm_extract_profile(cv_text: str) -> str:
+
+    model, tokenizer = get_llm()
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You extract research interests and expertise from academic CVs.\n"
+                "\n"
+                "Output ONLY a compact keyword list.\n"
+                "No explanations.\n"
+                "No sentences.\n"
+                "No markdown.\n"
+                "\n"
+                "Include:\n"
+                "- research domains\n"
+                "- technical skills\n"
+                "- scientific fields\n"
+                "- application domains\n"
+                "\n"
+                "Example:\n"
+                "machine learning, computer vision, healthcare AI, medical imaging, deep learning"
+            )
+        },
+        {
+            "role": "user",
+            "content": cv_text[:5000]
+        }
+    ]
+
+    prompt = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True)
+
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt").to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=128,
+        do_sample=False,
+        temperature=0.0,
+        pad_token_id=tokenizer.eos_token_id)
+
+    result = tokenizer.decode(
+        outputs[0][inputs.input_ids.shape[1]:],
+        skip_special_tokens=True)
+
+    return result.strip()

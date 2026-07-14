@@ -4,8 +4,10 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from flask import Flask, render_template, request
 from rag.rag_pipeline import rag_answer
+from rag.rag_pipeline import rag_cv_match
 
 import markdown
+import fitz
 
 
 app = Flask(__name__)
@@ -18,6 +20,7 @@ def index():
     sources = []
     query = ""
     result = None
+    text = ""
 
 
     if request.method == "POST":
@@ -38,20 +41,16 @@ def index():
                 )
 
 
-        # CV поиск пока отключен
-        # elif mode == "cv":
-        #
-        #     cv = request.files.get("cv")
-        #
-        #     if cv:
-        #         text = cv.read().decode(
-        #             "utf-8",
-        #             errors="ignore"
-        #         )
-        #
-        #         result = cv_recommend(text)
-
-
+        elif mode == "cv":
+        
+            cv = request.files.get("cv")
+        
+            if cv:
+                text = read_pdf(cv)
+        
+                result = rag_cv_match(
+                    text,
+                    pretty_print=False)
 
         if result:
 
@@ -75,6 +74,19 @@ def index():
         answer=answer,
         sources=sources
     )
+
+
+def read_pdf(pdf_file):
+    text = ""
+
+    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+
+    for page in doc:
+        text += page.get_text()
+
+    doc.close()
+
+    return text
 
 
 if __name__ == "__main__":
