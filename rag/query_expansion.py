@@ -1,7 +1,5 @@
 from llm import get_llm
 
-model, tokenizer = get_llm()
-
 def llm_expand_query(query: str) -> str:
     """
     Expand a user query for grant retrieval using Qwen.
@@ -26,6 +24,7 @@ def llm_expand_query(query: str) -> str:
         str:
             Expanded retrieval query suitable for embedding search.
     """
+    model, tokenizer = get_llm()
 
     messages = [
     {

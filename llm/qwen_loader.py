@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-print(torch.cuda.is_available())
+#print(torch.cuda.is_available())
 model_id = "Qwen/Qwen3.5-0.8B"
 
 _model = None

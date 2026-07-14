@@ -1,12 +1,17 @@
 from chroma_db import get_db
-from rag.query_expansion import llm_expand_query
+from .query_expansion import llm_expand_query
 from llm import get_llm
 
-model, tokenizer = get_llm()
+retriever = None
 
-# retriever
-db = get_db()
-retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 10, "fetch_k": 20})
+def get_retriever():
+    global retriever
+
+    if retriever is None:
+        db = get_db()
+        retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 10, "fetch_k": 20})
+
+    return retriever
 
 def rag_answer(query: str, pretty_print: bool = True ) -> dict:
     """
@@ -37,6 +42,8 @@ def rag_answer(query: str, pretty_print: bool = True ) -> dict:
             - answer (str): Generated response.
             - sources (list[str]): Source URLs.
     """
+    model, tokenizer = get_llm()
+    retriever = get_retriever()
     # 0. EXPAND
     expanded_query = llm_expand_query(query)
 
@@ -73,7 +80,7 @@ def rag_answer(query: str, pretty_print: bool = True ) -> dict:
         context_chunks.append("end_date: " + str(results[i].metadata.get("end_date")))
         context_chunks.append("min_amount: " + str(results[i].metadata.get("min_amount")))
         context_chunks.append("max_amount: " + str(results[i].metadata.get("max_amount")))
-        if meta.get("source"):
+        if results[i].metadata.get("source"):
             sources.append(results[i].metadata.get("url"))
 
     context = "\n\n".join(context_chunks)
@@ -170,26 +177,24 @@ Answer:
 
 def pretty_print_rag(result):
     """
-    Display a formatted RAG response in the console.
-
-    Prints:
-        - generated answer
-        - retrieved source URLs
-        - abstention notice when applicable
+    Format a RAG response for console output.
 
     Args:
-        result (dict):
-            Result dictionary returned by rag_answer().
+        result: Dictionary returned by rag_answer().
 
     Returns:
-        None
+        Formatted string.
     """
-    print("\nANSWER:\n")
-    print(result["answer"])
 
-    print("\nSOURCES:")
-    for s in result.get("sources", []):
-        print("-", s)
+    lines = ["ANSWER:\n"]
+    lines.append(result["answer"])
+
+    lines.append("\nSOURCES:")
+
+    for source in result.get("sources", []):
+        lines.append(f"- {source}")
 
     if result.get("abstain"):
-        print("\nAbstained: no sufficient evidence")
+        lines.append("\nAbstained: no sufficient evidence")
+
+    return "\n".join(lines)

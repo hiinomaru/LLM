@@ -1,6 +1,7 @@
 from collection import collect
 from chroma_db import ingest
 from rag import rag_answer
+from rag import llm_summary
 
 
 '''
@@ -10,7 +11,7 @@ from rag import rag_answer
 '''
 
 '''
-ingest()
+#ingest()
 
 '''
 

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Grant Finder</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+
+    <h1>
+        🔍 Grant Finder
+    </h1>
+
+
+    <p class="subtitle">
+        AI-powered grant recommendation system
+    </p>
+
+
+
+    <!-- TEXT SEARCH -->
+
+    <div class="card">
+
+
+        <h2>
+            🔎 Search grants
+        </h2>
+
+
+        <form method="POST" id="textForm">
+
+
+            <input 
+                type="hidden"
+                name="mode"
+                value="text"
+            >
+
+
+            <textarea
+                name="query"
+                placeholder="Ask about research grants..."
+            >{{ query }}</textarea>
+
+
+
+            <button type="submit">
+                Search
+            </button>
+
+
+        </form>
+
+
+    </div>
+
+
+
+
+
+    <!-- CV SEARCH -->
+
+
+    <div class="card">
+
+
+        <h2>
+            📄 Find grants from CV
+        </h2>
+
+
+
+        <form 
+            method="POST"
+            enctype="multipart/form-data"
+            id="cvForm"
+        >
+
+
+            <input
+                type="hidden"
+                name="mode"
+                value="cv"
+            >
+
+
+
+            <input
+                type="file"
+                name="cv"
+                accept=".pdf,.txt"
+                required
+            >
+
+
+
+            <button type="submit">
+                Analyze CV
+            </button>
+
+
+
+        </form>
+
+
+
+    </div>
+
+
+
+
+
+    <!-- LOADING -->
+
+
+    <div id="loading" class="hidden">
+
+
+        <div class="loader"></div>
+
+
+        <p id="status">
+            Searching...
+        </p>
+
+
+
+        <div class="progress">
+
+            <div id="bar"></div>
+
+        </div>
+
+
+    </div>
+
+
+
+
+
+
+    <!-- ANSWER -->
+
+
+    {% if answer %}
+
+
+    <div class="answer">
+
+
+        <h2>
+            🤖 Answer
+        </h2>
+
+
+
+        <div class="markdown">
+
+            {{ answer | safe }}
+
+        </div>
+
+
+
+    </div>
+
+
+
+
+    {% endif %}
+
+
+
+
+
+
+
+    <!-- SOURCES -->
+
+
+    {% if sources %}
+
+
+    <div class="sources">
+
+
+        <h2>
+            🔗 Sources
+        </h2>
+
+
+        <ul>
+
+
+        {% for source in sources %}
+
+
+            <li>
+
+                <a 
+                    href="{{ source }}"
+                    target="_blank"
+                >
+                    {{ source }}
+                </a>
+
+
+            </li>
+
+
+        {% endfor %}
+
+
+        </ul>
+
+
+    </div>
+
+
+
+    {% endif %}
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+<script>
+
+
+function showLoading(){
+
+
+    const loading =
+        document.getElementById(
+            "loading"
+        );
+
+
+    const bar =
+        document.getElementById(
+            "bar"
+        );
+
+
+    const status =
+        document.getElementById(
+            "status"
+        );
+
+
+
+    loading.classList.remove(
+        "hidden"
+    );
+
+
+
+    let progress = 0;
+
+
+
+    const messages = [
+
+        "Loading grant database...",
+
+        "Processing query...",
+
+        "Searching relevant grants...",
+
+        "Generating answer..."
+
+    ];
+
+
+
+    setInterval(() => {
+
+
+        progress += Math.random()*8;
+
+
+
+        if(progress > 95)
+            progress = 95;
+
+
+
+        bar.style.width =
+            progress + "%";
+
+
+
+        status.innerHTML =
+            messages[
+                Math.floor(progress / 25)
+            ];
+
+
+
+    },500);
+
+
+}
+
+
+
+
+document
+    .getElementById("textForm")
+    .addEventListener(
+        "submit",
+        showLoading
+    );
+
+
+
+document
+    .getElementById("cvForm")
+    .addEventListener(
+        "submit",
+        function(){
+
+
+            const status =
+                document.getElementById(
+                    "status"
+                );
+
+
+            showLoading();
+
+
+            status.innerHTML =
+                "Analyzing CV and matching grants...";
+
+
+        }
+    );
+
+
+
+</script>
+
+
+
+</body>
+
+</html>
