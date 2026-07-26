@@ -85,6 +85,18 @@ This creates the local Chroma database in:
 ```text
 ./chroma_db
 ```
+---
+
+## Run LLM Server
+
+The Grant Finder uses a separate Qwen inference server accessed through an HTTP API. 
+The language model is deployed independently from the RAG pipeline, allowing the retrieval system to communicate with the model through a simple interface.
+
+Start the LLM server:
+
+```bash
+uvicorn llm.server:app --host 127.0.0.1 --port 8000
+```
 
 ---
 

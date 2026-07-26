@@ -1,4 +1,19 @@
-from llm import get_llm
+import requests
+
+def generate_llm(messages, max_new_tokens=128):
+    response = requests.post(
+        "http://127.0.0.1:8000/generate",
+        json={
+            "messages": messages,
+            "max_new_tokens": max_new_tokens,
+            "temperature": 0.0,
+            "do_sample": False
+        }
+    )
+
+    response.raise_for_status()
+
+    return response.json()["answer"].strip()
 
 def llm_expand_query(query: str) -> str:
     """
@@ -24,7 +39,6 @@ def llm_expand_query(query: str) -> str:
         str:
             Expanded retrieval query suitable for embedding search.
     """
-    model, tokenizer = get_llm()
 
     messages = [
     {
@@ -74,30 +88,10 @@ Expanded query:
     }
 ]
 
-    prompt = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True)
-
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=80,
-        do_sample=False,
-        temperature=0.0,
-        pad_token_id=tokenizer.eos_token_id)
-
-    result = tokenizer.decode(
-        outputs[0][inputs.input_ids.shape[1]:],
-        skip_special_tokens=True)
-
-    return result.strip()
+    return generate_llm(messages, max_new_tokens=80)
 
 
 def llm_extract_profile(cv_text: str) -> str:
-
-    model, tokenizer = get_llm()
 
     messages = [
         {
@@ -126,24 +120,4 @@ def llm_extract_profile(cv_text: str) -> str:
         }
     ]
 
-    prompt = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True)
-
-    inputs = tokenizer(
-        prompt,
-        return_tensors="pt").to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=128,
-        do_sample=False,
-        temperature=0.0,
-        pad_token_id=tokenizer.eos_token_id)
-
-    result = tokenizer.decode(
-        outputs[0][inputs.input_ids.shape[1]:],
-        skip_special_tokens=True)
-
-    return result.strip()
+    return generate_llm(messages, max_new_tokens=128)

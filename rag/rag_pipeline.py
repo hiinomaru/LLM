@@ -1,6 +1,7 @@
 from chroma_db import get_db
 from .query_expansion import llm_expand_query, llm_extract_profile
-from llm import get_llm
+import requests
+#from llm import get_llm
 
 retriever = None
 
@@ -42,7 +43,6 @@ def rag_answer(query: str, pretty_print: bool = True ) -> dict:
             - answer (str): Generated response.
             - sources (list[str]): Source URLs.
     """
-    model, tokenizer = get_llm()
     retriever = get_retriever()
     # 0. EXPAND
     expanded_query = llm_expand_query(query)
@@ -150,25 +150,19 @@ Answer:
     #print(prompt)
 
     # 4. GENERATE
-    messages = [{"role": "user", "content": prompt}]
+    response = requests.post(
+        "http://127.0.0.1:8000/generate",
+        json={
+            "prompt": prompt,
+            "max_new_tokens": 512,
+            "temperature": 0.0,
+            "do_sample": False
+        }
+    )
 
-    chat = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True)
+    response.raise_for_status()
 
-    inputs = tokenizer(chat, return_tensors="pt").to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=512,
-        do_sample=False,
-        temperature=0.0,
-        pad_token_id=tokenizer.eos_token_id)
-
-    gen = tokenizer.decode(
-        outputs[0][inputs.input_ids.shape[1]:],
-        skip_special_tokens=True).strip()
+    gen = response.json()["answer"]
 
     if pretty_print:
         return pretty_print_rag({"answer": gen, "sources": list(sources)})
@@ -179,7 +173,6 @@ def rag_cv_match(cv: str, pretty_print: bool = True ) -> dict:
     """
     Generate an answer using the grant RAG pipeline.
     """
-    model, tokenizer = get_llm()
     retriever = get_retriever()
     # 0. EXPAND
     profile = llm_extract_profile(cv)
@@ -271,25 +264,19 @@ Rank grants from most relevant to least relevant.
     #print(prompt)
 
     # 4. GENERATE
-    messages = [{"role": "user", "content": prompt}]
+    response = requests.post(
+        "http://127.0.0.1:8000/generate",
+        json={
+            "prompt": prompt,
+            "max_new_tokens": 512,
+            "temperature": 0.0,
+            "do_sample": False
+        }
+    )
 
-    chat = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True)
+    response.raise_for_status()
 
-    inputs = tokenizer(chat, return_tensors="pt").to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=512,
-        do_sample=False,
-        temperature=0.0,
-        pad_token_id=tokenizer.eos_token_id)
-
-    gen = tokenizer.decode(
-        outputs[0][inputs.input_ids.shape[1]:],
-        skip_special_tokens=True).strip()
+    gen = response.json()["answer"]
 
     if pretty_print:
         return pretty_print_rag({"answer": gen, "sources": list(sources)})
